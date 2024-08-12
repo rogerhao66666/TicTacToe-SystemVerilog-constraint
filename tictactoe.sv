@@ -1,4 +1,4 @@
-`define N 5
+`define N 7
 typedef enum {CROSS = -1, EMPTY = 0, CIRCLE = 1} move_e;
 
 class tictactoe;
@@ -12,13 +12,13 @@ class tictactoe;
   
   rand move_e tic_toe [`N][`N];
   rand move_e tic_toe_t [`N][`N];
+  rand move_e diag[`N];
+  rand move_e rdiag[`N];
   
-  rand int empty [`N][`N];
+  rand bit empty [`N][`N];
   rand int row_sum [`N];
   rand int col_sum [`N];
-  rand int diag[`N];
   rand int diag_sum;
-  rand int rdiag[`N];
   rand int rdiag_sum;
   rand int board_sum;
   rand int empty_sum_row [`N];
@@ -42,6 +42,7 @@ class tictactoe;
   constraint tc2 {
     solve draw_game before p1_win, p2_win;
     solve winD before p1_win, p2_win;
+    solve incomplete_game before p1_win, p2_win;
     draw_game dist {0:=50, 1:=50};
     winD inside {[0:4]};
     winD dist {0:=20, 1:=20, 2:=20, 3:=20, 4:=20};
@@ -71,7 +72,7 @@ class tictactoe;
     $countones(p2_win[`N-1:0]) <= 1;
     $countones(p2_win[2*`N-1:`N]) <= 1;
     intersection inside {[0:`N-1]};
-    solve intersection before p1_win, p2_win, draw_game, incomplete_game;
+    solve intersection before p1_win, p2_win, draw_game, incomplete_game, winD;
     
     if ((winning_game == 1) && (winD == 2)) {
       $countones(p1_win) == 2 ->
@@ -89,16 +90,16 @@ class tictactoe;
     if ((winning_game == 1) && (winD == 3)) {
       $countones(p1_win) == 3 ->
       ((p1_win[intersection] == 1) && (p1_win[intersection+`N] == 1) && (p1_win[2*`N] == 1)) ||
-      ((p1_win[intersection] == 1) && (p1_win[intersection+`N] == 1) && (p1_win[2*`N+1] == 1)) ||
+      ((p1_win[intersection] == 1) && (p1_win[2*`N-1-intersection] == 1) && (p1_win[2*`N+1] == 1)) ||
       ((`N%2==1) && (intersection == (`N-1)/2) && (p1_win[intersection] == 1) && (p1_win[2*`N] == 1) && (p1_win[2*`N+1] == 1)) ||
       ((`N%2==1) && (intersection == (`N-1)/2) && (p1_win[intersection+`N] == 1) && (p1_win[2*`N] == 1) && (p1_win[2*`N+1] == 1));
         
       $countones(p2_win) == 3 ->
       ((p2_win[intersection] == 1) && (p2_win[intersection+`N] == 1) && (p2_win[2*`N] == 1)) ||
-      ((p2_win[intersection] == 1) && (p2_win[intersection+`N] == 1) && (p2_win[2*`N+1] == 1)) ||
+      ((p2_win[intersection] == 1) && (p2_win[2*`N-1-intersection] == 1) && (p2_win[2*`N+1] == 1)) ||
       ((`N%2==1) && (intersection == (`N-1)/2) && (p2_win[intersection] == 1) && (p2_win[2*`N] == 1) && (p2_win[2*`N+1] == 1)) ||
       ((`N%2==1) && (intersection == (`N-1)/2) && (p2_win[intersection+`N] == 1) && (p2_win[2*`N] == 1) && (p2_win[2*`N+1] == 1));
-     }
+    }
       
     if ((winning_game == 1) && (winD == 4)) {
       $countones(p1_win) == 4 ->
@@ -113,6 +114,17 @@ class tictactoe;
   ////////////////////////////////////////////////////////////////////////
     
   constraint tc4 {
+    foreach (tic_toe[i]) {
+      row_sum[i] inside {[`N*CROSS:`N*CIRCLE]};
+      row_sum[i] inside {[`N*CROSS:`N*CIRCLE]};
+      empty_sum_row[i] inside {[0:`N]};
+    }
+    
+    diag_sum inside {[`N*CROSS:`N*CIRCLE]};
+    rdiag_sum inside {[`N*CROSS:`N*CIRCLE]};
+    empty_sum inside {[0:`N*`N]};
+    board_sum inside {[-1:1]};
+    
     foreach (tic_toe[i,j]) {
       tic_toe_t[i][j] == tic_toe[j][i];
       i == j -> diag[i] == tic_toe[i][j];
@@ -130,9 +142,7 @@ class tictactoe;
     rdiag_sum == rdiag.sum();
     
     board_sum == row_sum.sum();
-    board_sum >= -1;
-    board_sum <= 1;
-    
+
     $countones(p1_win) > 0 -> board_sum <= 0;
     $countones(p2_win) > 0 -> board_sum >= 0;
     
@@ -195,7 +205,7 @@ class tictactoe;
       
   function void print ();
     string s;
-    $display("Printing tic-tac");
+    $display("Printing tic-tac-toe");
     $display("winning_game=%0d, winD=%0d, draw_game=%0d incomplete_game=%h p1_wins=%b p2_wins=%b intersection=%0d\n", winning_game, winD, draw_game, incomplete_game, p1_win,p2_win, intersection );
     foreach (tic_toe[i]) begin
       s = "";
@@ -215,8 +225,9 @@ module automatic test;
     for (int i = 0; i < 10; i=i+1) begin
       $display("RANDOMIZE %0d", i);
       m_tictactoe.randomize() with {
-        //winD == 4;
+        winD == 3;
         winning_game == 1;
+        intersection == 3;
         //draw_game == 1;
         //incomplete_game == 1;
       };
